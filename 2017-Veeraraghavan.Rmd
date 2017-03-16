@@ -1,0 +1,127 @@
+---
+title: "Veeraraghavan et al 2017"
+author: "James D. Brenton"
+date: "13 March 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+```{r, echo=FALSE}
+require(tidyverse)
+require(broom)
+require(survival)
+# Variants of mean, median etc with na.rm = T
+min_    <- function(...) min(..., na.rm=T)
+max_    <- function(...) max(..., na.rm=T)
+mean_   <- function(...) mean(..., na.rm=T)
+median_ <- function(...) median(..., na.rm=T)
+Q1_     <- function(...) quantile(..., probs=0.25, na.rm = TRUE)
+Q3_     <- function(...) quantile(..., probs=0.75, na.rm = TRUE)
+sum_    <- function(...) sum(..., na.rm=T)
+# function to return counts of samples
+n_fun <- function(x, y){ # y is position for labels
+  return(data.frame(y, label = paste0("n = ", length(x))))
+}
+```
+
+Load in clinical data.
+
+```{r, echo = FALSE}
+clin.data <- read_csv("2017-Veeraraghavan-data.csv")
+```
+
+Total number of patients
+
+```{r patients_total, echo = FALSE}
+clin.data %>%
+  distinct(tcga.id) %>% tally()
+```
+
+Are there any duplicate tcga.id?
+
+```{r duplicates, echo = FALSE}
+clin.data %>%
+  select(tcga.id) %>% tally()
+```
+
+How many in each group?
+
+```{r registration, echo = FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+  summarise(n = n()) %>%
+  mutate(rel.freq = n/sum(n))
+```
+
+How many platinum sensitive vs. resistant?
+
+```{r platinum, echo = FALSE}
+clin.data %>%
+  group_by(institution.bin, platinum.1.sensitive.2.resistant) %>%
+  summarise(n = n()) %>%
+  mutate(rel.freq = n/sum(n))
+```
+
+Were there differences in tumour volume between the cohorts?
+
+```{r, echo = FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    volume.cc) 
+```
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 3000, geom = "text")
+```
+
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(volume.cc ~ institution.bin, data = .)))
+```
+
+Were there differences in the number of sites (ROI) between the cohorts?
+
+```{r, echo = FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    sites) 
+```
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
+```
+
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(sites ~ institution.bin, data = .)))
+```
+
+What are significant determinants of survival?
+
