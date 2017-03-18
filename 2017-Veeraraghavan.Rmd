@@ -65,7 +65,15 @@ How many platinum sensitive vs. resistant?
 
 ```{r platinum, echo = FALSE}
 clin.data %>%
-  group_by(institution.bin, platinum.1.sensitive.2.resistant) %>%
+  group_by(institution.bin, platinum.resistant) %>%
+  summarise(n = n()) %>%
+  mutate(rel.freq = n/sum(n))
+```
+Were there stage differences?
+
+```{r platinum, echo = FALSE}
+clin.data %>%
+  group_by(institution.bin, stage) %>%
   summarise(n = n()) %>%
   mutate(rel.freq = n/sum(n))
 ```
