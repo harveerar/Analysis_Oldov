@@ -124,26 +124,57 @@ clin.data %>%
   do(tidy(wilcox.test(sites ~ institution.bin, data = .)))
 ```
 
-What are significant determinants of survival?
+## Survival analysis
+
+What is OS in the two cohorts?
 
 
-```{r}
+```{r, echo=FALSE}
 clin.data %>% 
   group_by(institution.bin) %>% 
   do(glance(survfit(Surv(time=os.mos, event=dead=="1") ~ 1, data=.)))
 ```
-```{r}
+
+Plot comparison of OS.
+
+```{r, echo=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(tidy(survfit(Surv(time=os.mos, event=dead=="1") ~ 1, data=.))) %>%
+  ggplot(aes(time, estimate, group = institution.bin, colour=institution.bin)) + geom_line() +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+
+What is PFS in the two cohorts?
+
+```{r, echo=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(glance(survfit(Surv(time=os.mos, event=recurrence=="1") ~ 1, data=.)))
+```
+Plot comparison of PFS. The data for TCIA is has wide confidence intervals and is probably not usable.
+
+```{r, echo=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(tidy(survfit(Surv(time=pfs.mos, event=recurrence=="1") ~ 1, data=.))) %>%
+  ggplot(aes(time, estimate, group = institution.bin, colour=institution.bin)) + geom_line() +
+    geom_ribbon(aes(ymin = conf.low, ymax = conf.high), alpha = .2)
+```
+What are main factors for OS from Cox proportional hazard analysis?
+
+```{r, echo=FALSE}
 clin.data %>% 
   group_by(institution.bin) %>%
-  do(tidy(coxph(Surv(time=os.mos, event=dead=="1") ~ age + stage + platinum.resistant + sites + volume.cc + resection.1.unknown.0.complete.2.1cm.3.1cm,
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1") ~ age + stage + platinum.resistant + sites + volume.cc + residual.disease,
                 data=.), exponentiate = TRUE))
 ```
+What are main factors for PFS from Cox proportional hazard analysis?
 
-```{r}
+
+```{r, echo=FALSE}
 clin.data %>% 
-  filter(institution.bin == "MSKCC") %>%
-  do(tidy(coxph(Surv(time=os.mos, event=dead=="1") ~ sites + volume.cc + clu.diss,
-                data=.), exponentiate = FALSE))
-
-```
-
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1") ~ age + stage + platinum.resistant + sites + volume.cc + residual.disease,
+                data=.), exponentiate = TRUE))
+```       
