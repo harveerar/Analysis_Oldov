@@ -12,4 +12,6 @@
 *.tif
 *.tiff
 *.Rproj
+.Rhistory
+.Rproj
 .Rproj.user

@@ -15,6 +15,7 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 ```{r, echo=FALSE}
 require(tidyverse)
+require(knitr)
 require(broom)
 require(survival)
 require(survminer)
@@ -38,6 +39,8 @@ Load in clinical data.
 clin.data <- read_csv("2017-Veeraraghavan-data.csv")
 ```
 
+## Simple data exploration
+
 Total number of patients
 
 ```{r patients_total, echo = FALSE}
@@ -47,23 +50,26 @@ clin.data %>%
 
 Are there any duplicate tcga.id?
 
-```{r duplicates, echo = FALSE}
+```{r, echo = FALSE}
 clin.data %>%
   select(tcga.id) %>% tally()
 ```
 
 How many in each group?
 
-```{r registration, echo = FALSE}
+```{r, echo = FALSE}
 clin.data %>%
     group_by(institution.bin) %>%
   summarise(n = n()) %>%
   mutate(rel.freq = n/sum(n))
+#  kable(digits = 2)
 ```
+What was follow up? (NO DATA IN DATA FILE)
+
 
 How many platinum sensitive vs. resistant?
 
-```{r platinum, echo = FALSE}
+```{r, echo = FALSE}
 clin.data %>%
   group_by(institution.bin, platinum.resistant) %>%
   summarise(n = n()) %>%
@@ -71,7 +77,7 @@ clin.data %>%
 ```
 Were there stage differences?
 
-```{r platinum, echo = FALSE}
+```{r, echo = FALSE}
 clin.data %>%
   group_by(institution.bin, stage) %>%
   summarise(n = n()) %>%
@@ -93,12 +99,15 @@ clin.data %>%
     volume.cc) 
 ```
 
+Plot the volume distributions.
+
 ```{r, echo = FALSE}
 clin.data %>%
   ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot() +
     stat_summary(fun.data = n_fun, fun.args = 3000, geom = "text")
 ```
 
+Non-parametric test for volume distributions.
 
 ```{r, echo = FALSE}
 clin.data %>% 
@@ -120,12 +129,15 @@ clin.data %>%
     sites) 
 ```
 
+Plot the ROI counts.
+
 ```{r, echo = FALSE}
 clin.data %>%
   ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot() +
     stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
 ```
 
+Non-parametric test for ROI.
 
 ```{r, echo = FALSE}
 clin.data %>% 
