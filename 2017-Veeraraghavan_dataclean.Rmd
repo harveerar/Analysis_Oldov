@@ -57,7 +57,10 @@ Add new indicator variables.
 clin.data <- clin.data %>%
   mutate(institution.bin = 
            ifelse(institution %in% 1:5, "TCIA",
-           ifelse(institution == "MSKCC", institution,  NA)))
+           ifelse(institution == "MSKCC", institution,  NA)),
+         platinum.resistant = ifelse(platinum.1.sensitive.2.resistant == 1, FALSE, 
+                                     ifelse(platinum.1.sensitive.2.resistant == 2, TRUE, NA)),
+         residual.disease = ifelse(resection.1.unknown.0.complete.2.1cm.3.1cm %in% c(0, 2, 3), resection.1.unknown.0.complete.2.1cm.3.1cm, NA))
 ```
 
 ```{r}

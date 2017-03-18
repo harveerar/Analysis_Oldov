@@ -1,7 +1,7 @@
 ---
 title: "Veeraraghavan et al 2017"
 author: "James D. Brenton"
-date: "13 March 2017"
+date: "18 March 2017"
 output: html_document
 ---
 
@@ -17,6 +17,7 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 require(tidyverse)
 require(broom)
 require(survival)
+require(survminer)
 # Variants of mean, median etc with na.rm = T
 min_    <- function(...) min(..., na.rm=T)
 max_    <- function(...) max(..., na.rm=T)
@@ -124,4 +125,25 @@ clin.data %>%
 ```
 
 What are significant determinants of survival?
+
+
+```{r}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(glance(survfit(Surv(time=os.mos, event=dead=="1") ~ 1, data=.)))
+```
+```{r}
+clin.data %>% 
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1") ~ age + stage + platinum.resistant + sites + volume.cc + resection.1.unknown.0.complete.2.1cm.3.1cm,
+                data=.), exponentiate = TRUE))
+```
+
+```{r}
+clin.data %>% 
+  filter(institution.bin == "MSKCC") %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1") ~ sites + volume.cc + clu.diss,
+                data=.), exponentiate = FALSE))
+
+```
 

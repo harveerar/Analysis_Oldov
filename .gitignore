@@ -12,3 +12,4 @@
 *.tif
 *.tiff
 *.Rproj
+.Rproj.user
