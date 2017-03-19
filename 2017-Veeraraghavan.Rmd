@@ -1,4 +1,4 @@
----
+--
 title: "Veeraraghavan et al 2017"
 author: "James D. Brenton"
 date: "18 March 2017"
@@ -61,9 +61,8 @@ How many in each group?
 
 ```{r, echo = FALSE}
 clin.data %>%
-    group_by(institution.bin) %>%
-  summarise(n = n()) %>%
-  mutate(rel.freq = n/sum(n))
+  count(institution.bin) %>%
+  mutate(rel.freq = 100 * n/sum(n))
 #  kable(digits = 2)
 ```
 What was follow up? (NO DATA IN DATA FILE)
@@ -73,17 +72,15 @@ How many platinum sensitive vs. resistant?
 
 ```{r, echo = FALSE}
 clin.data %>%
-  group_by(institution.bin, platinum.resistant) %>%
-  summarise(n = n()) %>%
-  mutate(rel.freq = n/sum(n))
+  count(institution.bin, platinum.resistant) %>%
+  mutate(rel.freq = 100 * n/sum(n))
 ```
 Were there stage differences?
 
 ```{r, echo = FALSE}
 clin.data %>%
-  group_by(institution.bin, stage) %>%
-  summarise(n = n()) %>%
-  mutate(rel.freq = n/sum(n))
+  count(institution.bin, stage) %>%
+  mutate(rel.freq = 100 * n/sum(n))
 ```
 
 Were there differences in tumour volume between the cohorts?
