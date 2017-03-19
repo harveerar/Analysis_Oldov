@@ -210,3 +210,48 @@ clin.data %>%
   select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```       
+
+## Correlation analysis
+
+Convert wide table into long format.
+
+```{r, echo=FALSE}
+clin.data.wide <- clin.data %>%
+  gather(image.metric, measurement, c.se:entropy)
+```
+
+Are image.metrics correlated with volume?
+
+```{r, echo=FALSE}
+clin.data.wide %>%
+  group_by(image.metric) %>%
+  do(tidy(cor.test(.$volume.cc, .$measurement))) %>%
+  arrange(desc(estimate), p.value)
+```
+
+
+Are image.metrics correlated with number of ROI?
+
+```{r, echo=FALSE}
+clin.data.wide %>%
+  group_by(image.metric) %>%
+  do(tidy(cor.test(.$sites, .$measurement))) %>%
+  arrange(desc(estimate), p.value)
+```
+
+Are image.metrics correlated with OS?
+
+```{r, echo=FALSE}
+clin.data.wide %>%
+  group_by(image.metric, institution.bin) %>%
+  do(tidy(cor.test(.$os.mos, .$measurement))) %>%
+  arrange(desc(estimate), p.value)
+```
+Are image.metrics correlated with PFS?
+
+```{r, echo=FALSE}
+clin.data.wide %>%
+  group_by(image.metric,institution.bin) %>%
+  do(tidy(cor.test(.$pfs.mos, .$measurement))) %>%
+  arrange(desc(estimate), p.value)
+```
