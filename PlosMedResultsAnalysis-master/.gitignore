@@ -1,0 +1,17 @@
+*.ai
+*.aux
+*.bbl
+*.blg
+*.gz
+*.html
+*.jpg
+*.log
+*.out
+*.pdf
+*.png
+*.tif
+*.tiff
+*.Rproj
+.Rhistory
+.Rproj
+.Rproj.user
