@@ -1,0 +1,1460 @@
+---
+title: "Veeraraghavan etal 2017"
+author: "Harini Veeraraghavan and James D. Brenton"
+date: "18 March 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r, echo=FALSE, warning= FALSE}
+require(tidyverse)
+require(knitr)
+require(broom)
+require(survival)
+require(survminer)
+require(plyr)
+require(ggplot2)
+
+# options for output
+options(scipen=1, digits=2)
+# Variants of mean, median etc with na.rm = T
+min_    <- function(...) min(..., na.rm=T)
+max_    <- function(...) max(..., na.rm=T)
+mean_   <- function(...) mean(..., na.rm=T)
+median_ <- function(...) median(..., na.rm=T)
+Q1_     <- function(...) quantile(..., probs=0.25, na.rm = TRUE)
+Q3_     <- function(...) quantile(..., probs=0.75, na.rm = TRUE)
+sum_    <- function(...) sum(..., na.rm=T)
+# function to return counts of samples
+n_fun <- function(x, y){ # y is position for labels
+  return(data.frame(y, label = paste0("n = ", length(x))))
+}
+```
+
+Load in clinical data.
+
+```{r, echo = FALSE, results="hide", warning=FALSE}
+clin.data <- read_csv("2017-Veeraraghavan-data-HV.csv")
+```
+
+## Simple data exploration
+
+Total number of patients
+
+```{r patients_total, echo = FALSE}
+clin.data %>%
+  distinct(tcga.id) %>% tally()
+```
+
+
+####Were there differences in the number of sites (ROI) between the cohorts?
+
+```{r, echo = FALSE, message=FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    sites) 
+```
+
+Plot the ROI counts.
+
+```{r, echo = FALSE, warning=FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
+
+print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
+                  clin.data$sites[clin.data$institution.bin != "MSKCC"]))
+```
+
+
+####Differences in OS in the two cohorts? (TCIA and MSKCC)
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    os.mos) 
+```
+
+
+```{r, echo=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(glance(survfit(Surv(time=os.mos, event=dead=="1") ~ 1, data=.)))
+
+```
+
+#####Plot comparison of OS.
+
+```{r, echo=FALSE}
+ggsurvplot(
+  survfit(Surv(time=os.mos, event=dead=="1") ~ institution.bin, data=clin.data),
+  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE)
+```
+
+
+####Differences in PFS in the two cohorts? (TCIA and MSKCC)
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    pfs.mos) 
+```
+
+```{r, echo=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>% 
+  do(glance(survfit(Surv(time=pfs.mos, event=recurrence=="1") ~ 1, data=.)))
+```
+
+#####Plot comparison of OS.
+
+```{r, echo=FALSE}
+ggsurvplot(
+  survfit(Surv(time=pfs.mos, event=recurrence=="1") ~ institution.bin, data=clin.data),
+  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE)
+```
+
+
+####Differences in follow ups
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    Follow.up.mos) 
+ 
+```
+
+#####Plot comparison of follow ups
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = Follow.up.mos)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
+
+print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
+                  clin.data$sites[clin.data$institution.bin != "MSKCC"]))
+  
+```
+
+#### Differences in total tumor volume between the datasets
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    volume.cc) 
+```
+
+Plot the volume distributions.
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 2586, geom = "text")
+```
+
+Non-parametric test for volume distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(volume.cc ~ institution.bin, data = .)))
+```
+
+***
+
+
+####Differences in the computed texture measures between the datasets
+#####Energy
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    energy)
+
+```
+
+Plot the energy distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = energy)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
+```
+
+Non-parametric test for energy distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(energy ~ institution.bin, data = .)))
+```
+
+#####Entropy
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    entropy)
+
+```
+
+Plot the energy distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = entropy)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
+```
+
+Non-parametric test for entropy distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(entropy ~ institution.bin, data = .)))
+```
+
+
+#####Contrast
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    contrast)
+
+```
+
+Plot the contrast distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = contrast)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
+```
+
+Non-parametric test for contrast distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(contrast ~ institution.bin, data = .)))
+```
+
+#####Homogeneity
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    homogeneity)
+
+```
+
+Plot the homogeneity distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = homogeneity)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
+```
+
+Non-parametric test for homogeneity distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(homogeneity ~ institution.bin, data = .)))
+```
+
+#####cSE
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    c.se)
+
+```
+
+Plot the cSE distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = c.se)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 6, geom = "text")
+```
+
+Non-parametric test for cSE distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(c.se ~ institution.bin, data = .)))
+```
+
+#####cluDev
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    clu.dev)
+
+```
+
+Plot the cluDev distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = clu.dev)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 25, geom = "text")
+```
+
+Non-parametric test for cluDev distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(clu.dev ~ institution.bin, data = .)))
+```
+
+#####cluDiss
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+    summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_
+    ), 
+    clu.diss)
+
+```
+
+
+Plot the cluDiss distribution
+
+```{r, echo = FALSE}
+clin.data %>%
+  ggplot(aes(x = institution.bin, y = clu.diss)) + geom_boxplot() +
+    stat_summary(fun.data = n_fun, fun.args = 30902, geom = "text")
+```
+
+Non-parametric test for cluDiss distributions.
+
+```{r, echo = FALSE}
+clin.data %>% 
+  do(tidy(wilcox.test(clu.diss ~ institution.bin, data = .)))
+```
+
+***
+##### Spearman rank correlation between texture measures and tumour burden
+
+cSE vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+      do(tidy(cor.test(clin.data$c.se, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+cluDiss vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+      do(tidy(cor.test(clin.data$clu.diss, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+cluDev vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+
+   clin.data %>%
+      do(tidy(cor.test(clin.data$clu.dev, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+Energy vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+      
+    clin.data %>%
+      do(tidy(cor.test(clin.data$energy, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+Entropy vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+  
+    clin.data %>%
+      do(tidy(cor.test(clin.data$entropy, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+Contrast vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$contrast, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+Homogeneity vs. tumour volume
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$homogeneity, clin.data$volume.cc, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+Correlation with number of sites 
+
+cSE vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+      do(tidy(cor.test(clin.data$c.se, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+cluDiss vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$clu.diss, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+cluDev vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+   clin.data %>%
+      do(tidy(cor.test(clin.data$clu.dev, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+```
+
+Energy vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$energy, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+Entropy vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$entropy, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+    
+```
+
+Contrast vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$contrast, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+Homogeneity vs. sites
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data %>%
+      do(tidy(cor.test(clin.data$homogeneity, clin.data$sites, method="spearman"))) %>%
+  select(estimate, p.value)
+
+```
+
+*** 
+
+##Volume and association to outcomes
+
+##### Cox regression to determine if volume was associated with survival in the two datasets
+
+Check if volume was associated with PFS
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc+age + as.factor(stage), data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if volume was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc+age + as.factor(stage), data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+  
+
+##### Non-parametric two-sided analysis for volume vs. platinum status
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(volume.cc ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+***
+
+
+##ISTH measures and association to outcomes
+
+####Cox hazard regression for continuous ISTH measures with PFS in the two datasets
+
+Check if cSE was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~c.se+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cSE was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~c.se+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if cluDev was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.dev+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cluDev was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.dev+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if cluDiss was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.diss+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cluDiss was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.diss+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+#### Non-parameteric tests to test association of ISTH measures with platinum status
+
+Was cSE associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(c.se ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Was cluDev associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(clu.dev ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Was cluDiss associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(clu.diss ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+#####Distribution of ISTH measures across cluster groups -- category boundaries
+
+cSE
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.ISTH) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), c.se)
+
+```
+
+cluDev
+
+```{r, echo=FALSE, warning=FALSE}
+
+ clin.data%>%
+    group_by(institution.bin, ClusterID.ISTH) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), clu.dev)
+```
+
+cluDiss
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.ISTH) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), clu.diss)
+
+```
+
+
+####Association between high, ultra-high vs. low, medium ISTH clusters and survival
+
+Was low,medium cluster heterogeneity associated with PFS?
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data$clusterISTH <- (clin.data$ClusterID.ISTH == "Low" | clin.data$ClusterID.ISTH=="Medium")
+    slo <- clin.data$clusterISTH
+    shi <- !clin.data$clusterISTH
+    clin.data$clusterISTH[slo] <- paste("Low")
+    clin.data$clusterISTH[shi] <- paste("High")
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Was low,medium cluster heterogeneity associated with OS?
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clusterISTH+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+#### Distribution of clinical characteristics in the clustered groups for the two datasets
+
+Number of ROIs
+
+```{r, echo=FALSE, warning= FALSE}
+  clin.data %>%
+    group_by(institution.bin,ClusterID.ISTH) %>%
+        summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_,
+    sum_), sites)
+```
+
+Volume 
+
+
+```{r, echo=FALSE, warning= FALSE}
+  clin.data %>%
+    group_by(institution.bin,ClusterID.ISTH) %>%
+        summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_,
+    sum_), volume.cc)
+```
+
+Number of cases
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  clin.data %>%
+    group_by(institution.bin, ClusterID.ISTH) %>%
+      do(data.frame(nrow=nrow(.)))
+```
+
+PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin,ClusterID.ISTH) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), pfs.mos)
+```
+
+OS 
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin,ClusterID.ISTH) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), os.mos)
+```
+
+Resection status
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  t <- clin.data%>%
+    group_by(institution.bin,ClusterID.ISTH,residual.disease) %>%
+       do(data.frame(nrow=nrow(.)))
+  t <- na.omit(t)
+  print(t,n=50)
+```
+
+
+
+Platinum resistant
+
+```{r, echo=FALSE, warning=FALSE}
+
+  t <- clin.data%>%
+    group_by(institution.bin,ClusterID.ISTH,platinum.resistant) %>%
+       do(data.frame(nrow=nrow(.)))
+  print(t,n=21)
+  t <- na.omit(t)
+```
+
+Fisher exact test for MSKCC clusters ISTH vs. platinum resistance
+
+```{r, echo=FALSE, warning=FALSE}
+
+  tidy(fisher.test(t(matrix(as.matrix.data.frame(t[1:8,4]), 
+                            nrow=2,ncol=4, 
+                            dimnames = list(c("Sensitive", "Resistant"), c("High", "Low", "Medium", "Ultra-High")))), 
+                   alternative="two.sided"))
+
+```
+
+Fisher exact test for TCIA clusters ISTH vs. platinum resistance
+```{r, echo=FALSE, warning=FALSE}
+    tidy(fisher.test(t(matrix(as.matrix.data.frame(t[9:17,4]), 
+                            nrow=2,ncol=4, 
+                            dimnames = list(c("Sensitive", "Resistant"), c("High", "Low", "Medium", "Ultra-High")))), 
+                   alternative="two.sided"))
+```
+
+
+
+#### Prevalence of Platinum resistance in clusters
+
+Platinum resistance/sensitivity in low,medium vs. high/ultra-high ISTH clusters
+
+```{r, echo=FALSE, warning=FALSE}
+  t <- clin.data%>%  
+    group_by(institution.bin, clusterISTH, platinum.resistant) %>%
+      do(data.frame(nrow=nrow(.)))
+  print(t)
+  
+  
+```
+
+Fisher exact test for MSKCC clusters ISTH vs. platinum resistance
+
+```{r, echo=FALSE, warning=FALSE}
+
+  platinumByClusters <- matrix(c(21, 14, 2, 7), nrow=2, dimnames = list(c("Sensitive", "Resistant"), c("Low", "High")))
+
+  tidy(fisher.test(platinumByClusters, alternative = "two.sided")) %>%
+    select(estimate, p.value, conf.low, conf.high)
+```
+
+Fisher exact test for TCIA clusters ISTH vs. platinum resistance
+```{r, echo=FALSE, warning=FALSE}
+   platinumByClusters <- matrix(c(7, 10, 3, 4), nrow=2, dimnames = list(c("Sensitive", "Resistant"), 
+                                                                       c("Low", "High")))
+  tidy(fisher.test(platinumByClusters, alternative="two.sided")) %>%
+    select(estimate, p.value, conf.low, conf.high)
+```
+
+#### Prevalence of CCNE1 amplifications in the datasets
+
+```{r, echo=FALSE, warning=FALSE}
+    t <- clin.data%>%  
+    group_by(institution.bin, clusterISTH, CCNE1.amp) %>%
+      do(data.frame(nrow=nrow(.)))
+  print(t)
+  t <- na.omit(t)
+```
+
+Fisher exact test for clusters vs. CCNE1: MSKCC
+
+```{r, echo=FALSE, warning=FALSE}
+  tidy(fisher.test(t(matrix(as.matrix.data.frame(t[1:4,4]), 
+                            nrow=2,ncol=2, 
+                            dimnames = list(c("NoAmp", "Amp"), c("High", "Low")))), 
+                   alternative="two.sided"))
+```
+
+Fisher exact test for clusters vs. CCNE1: TCIA
+
+```{r, echo=FALSE, warning=FALSE}
+  tidy(fisher.test(t(matrix(as.matrix.data.frame(t[5:8,4]), 
+                            nrow=2,ncol=2, 
+                            dimnames = list(c("NoAmp", "Amp"), c("High", "Low")))), 
+                   alternative="two.sided"))
+```
+
+Resection status
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  tdata <- clin.data%>%
+    group_by(institution.bin, clusterISTH,residual.disease) %>%
+       do(data.frame(nrow=nrow(.)))
+  tdata <- na.omit(tdata)
+  print(tdata,n=50)
+```
+
+Fisher exact test for clusters vs. resection: MSKCC
+
+```{r, echo=FALSE, warning=FALSE}
+
+  print(t(matrix(as.matrix(tdata[1:6,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))))
+
+  tidy(fisher.test(t(matrix(as.matrix(tdata[1:6,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))), alternative = "two.sided"))
+
+```
+
+Fisher exact test for clusters vs. resection: TCIA
+
+```{r, echo=FALSE, warning=FALSE}
+
+  print(t(matrix(as.matrix(tdata[7:13,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))))
+
+  tidy(fisher.test(t(matrix(as.matrix(tdata[7:13,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))), alternative = "two.sided"))
+
+```
+
+
+***
+
+##Haralick textures and association to outcomes
+####Cox hazard regression for continuous Haralick texture measures with PFS in the two datasets
+
+Check if Energy was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~energy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Energy was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~energy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Entropy was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~entropy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Entropy was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~entropy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Contrast was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~contrast+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Contrast was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~contrast+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Homogeneity was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~homogeneity+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Homogeneity was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+ clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~homogeneity+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+#### Non-parameteric tests to test association of Haralick textures with platinum status
+
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(energy ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Was entropy associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(entropy ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Was contrast associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(contrast ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+
+Was homogeneity associated with Platinum sensitivity
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(homogeneity ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+
+
+###### Category boundaries for Haralick clusters
+
+Energy
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), energy)
+
+```
+
+Entropy
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), entropy)
+
+```
+
+Contrast
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), contrast)
+
+```
+
+Homogeneity
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin, ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), homogeneity)
+
+```
+
+
+
+
+
+####Association between Haralick clusters and survival
+
+Haralick clusters and association with PFS?
+
+```{r, echo=FALSE, warning=FALSE}
+
+    clin.data$Hcluster <- clin.data$ClusterID.Haralick
+    clin.data$Hcluster[clin.data$Hcluster=="Low"] <- paste("aLow")
+    clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("bMedium")
+    clin.data$Hcluster[clin.data$Hcluster=="High"] <- paste("cHigh")
+      
+
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~Hcluster+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Haralick clusters and association with OS?
+
+```{r, echo=FALSE, warning=FALSE}
+    clin.data %>%
+    group_by(institution.bin) %>%
+      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~Hcluster+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
+    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+#### Distribution of clinical characteristics in the clustered groups for the two datasets
+
+Number of ROIs
+
+```{r, echo=FALSE, warning= FALSE}
+  clin.data %>%
+    group_by(institution.bin,ClusterID.Haralick) %>%
+        summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_,
+    sum_), sites)
+```
+
+Volume 
+
+
+```{r, echo=FALSE, warning= FALSE}
+  clin.data %>%
+    group_by(institution.bin,ClusterID.Haralick) %>%
+        summarize_each(funs(
+    min_,
+    Q1_,
+    median_,
+    Q3_,
+    max_,
+    sum_), volume.cc)
+```
+
+Number of cases
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  clin.data %>%
+    group_by(institution.bin, ClusterID.Haralick) %>%
+      do(data.frame(nrow=nrow(.)))
+```
+
+PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin,ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), pfs.mos)
+```
+
+OS 
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    group_by(institution.bin,ClusterID.Haralick) %>%
+      summarize_each(funs(
+        min_,
+        Q1_,
+        median_,
+        Q3_,
+        max_
+      ), os.mos)
+```
+
+
+
+Resection status
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  tdata <- clin.data%>%
+    group_by(institution.bin,ClusterID.Haralick,residual.disease) %>%
+       do(data.frame(nrow=nrow(.)))
+  tdata <- na.omit(tdata)
+  print(na.omit(tdata),n=50)
+```
+
+Were clusters associated with resection status
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  print(t(matrix(as.matrix(tdata[1:9,4]), nrow=3, ncol=3, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low", "Medium")))))
+
+  tidy(fisher.test(t(matrix(as.matrix(tdata[9:18,4]), nrow=3, ncol=3, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low", "Medium")))), alternative = "two.sided"))
+
+```
+
+Fisher exact test for clusters vs. resection: TCIA
+
+```{r, echo=FALSE, warning=FALSE}
+
+  print(t(matrix(as.matrix(tdata[7:13,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))))
+
+  tidy(fisher.test(t(matrix(as.matrix(tdata[7:13,4]), nrow=3, ncol=2, dimnames = list(c("Complete", "Optimal", "Suboptimal"), c("High", "Low")))), alternative = "two.sided"))
+
+
+```
+
+
+#### Prevalence of Platinum resistance in clusters
+
+Platinum resistant
+
+```{r, echo=FALSE, warning=FALSE}
+
+  t <- clin.data%>%
+    group_by(institution.bin,ClusterID.Haralick,platinum.resistant) %>%
+       do(data.frame(nrow=nrow(.)))
+  t <- na.omit(t)
+  print(na.omit(t),n=21)
+```
+
+
+Fisher exact test for MSKCC clusters Haralick vs. platinum resistance
+
+```{r, echo=FALSE, warning=FALSE}
+
+  tidy(fisher.test(t(matrix(as.matrix.data.frame(t[1:6,4]), 
+                            nrow=2,ncol=3, 
+                            dimnames = list(c("Sensitive", "Resistant"), c("High", "Low", "Medium")))), 
+                   alternative="two.sided"))
+
+```
+
+Fisher exact test for TCIA clusters Haralick vs. platinum resistance
+```{r, echo=FALSE, warning=FALSE}
+    tidy(fisher.test(t(matrix(as.matrix.data.frame(t[7:13,4]), 
+                            nrow=2,ncol=3, 
+                            dimnames = list(c("Sensitive", "Resistant"), c("High", "Low", "Medium")))), 
+                   alternative="two.sided"))
+```
+
+***
+
+##Differences in the texture values for scan manufacturers
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data$scanner <- clin.data$manufacturer=="GE"
+  ge <- clin.data$scanner
+  clin.data$scanner[ge] <- paste("GE")
+  clin.data$scanner[!ge] <- paste("not GE")
+  
+```
+
+cSE vs. Scanner
+
+```{r, echo=FALSE, warning=FALSE}
+  
+  clin.data%>%
+    do(tidy(wilcox.test(c.se ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+
+cluDev vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(clu.dev ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+cluDiss vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(clu.diss ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+Energy vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(energy ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+Contrast vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(contrast ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+Homogeneity vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(homogeneity ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+Entropy vs. scanner
+
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data%>%
+    do(tidy(wilcox.test(entropy ~ scanner, data = clin.data[clin.data$institution.bin!="MSKCC",])))
+```
+
+
+## Generate the KM curves for using the ISTH clusters (low,mid vs. high, ultra-high)
+
+PFS
+
+```{r, echo=FALSE, warning=FALSE}
+  #clin.data %>%
+  #  group_by(institution.bin) %>%
+     ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion not progressed")
+
+     ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion not progressed")
+
+ 
+```
+
+OS
+
+
+```{r, echo=FALSE, warning=FALSE}
+#  clin.data %>%
+#    group_by(institution.bin) %>%
+     ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion surviving")
+ 
+
+  ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion surviving")
+```
+
+
+
+
