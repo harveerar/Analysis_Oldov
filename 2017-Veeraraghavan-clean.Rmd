@@ -17,7 +17,6 @@ require(knitr)
 require(broom)
 require(survival)
 require(survminer)
-require(plyr)
 require(ggplot2)
 
 # options for output
@@ -71,7 +70,7 @@ Plot the ROI counts.
 
 ```{r, echo = FALSE, warning=FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
 
 print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
@@ -161,7 +160,7 @@ clin.data %>%
 ```{r, echo=FALSE, warning=FALSE}
 
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = Follow.up.mos)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = Follow.up.mos)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
 
 print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
@@ -187,7 +186,7 @@ Plot the volume distributions.
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 2586, geom = "text")
 ```
 
@@ -222,7 +221,7 @@ Plot the energy distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = energy)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = energy)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -253,7 +252,7 @@ Plot the energy distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = entropy)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = entropy)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -285,7 +284,7 @@ Plot the contrast distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = contrast)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = contrast)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -316,7 +315,7 @@ Plot the homogeneity distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = homogeneity)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = homogeneity)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -347,7 +346,7 @@ Plot the cSE distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = c.se)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = c.se)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 6, geom = "text")
 ```
 
@@ -378,7 +377,7 @@ Plot the cluDev distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = clu.dev)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = clu.dev)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 25, geom = "text")
 ```
 
@@ -410,7 +409,7 @@ Plot the cluDiss distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = clu.diss)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = clu.diss)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 30902, geom = "text")
 ```
 
