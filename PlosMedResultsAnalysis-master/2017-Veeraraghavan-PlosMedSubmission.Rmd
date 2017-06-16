@@ -1,7 +1,7 @@
 ---
 title: "Veeraraghavan etal 2017"
 author: "Harini Veeraraghavan and James D. Brenton"
-date: "18 March 2017"
+date: "June 16 2017"
 output: html_document
 ---
 
@@ -17,7 +17,6 @@ require(knitr)
 require(broom)
 require(survival)
 require(survminer)
-require(plyr)
 require(ggplot2)
 
 # options for output
@@ -71,7 +70,7 @@ Plot the ROI counts.
 
 ```{r, echo = FALSE, warning=FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = sites)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
 
 print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
@@ -161,7 +160,7 @@ clin.data %>%
 ```{r, echo=FALSE, warning=FALSE}
 
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = Follow.up.mos)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = Follow.up.mos)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
 
 print(wilcox.test(clin.data$sites[clin.data$institution.bin=="MSKCC"], 
@@ -187,7 +186,7 @@ Plot the volume distributions.
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = volume.cc)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 2586, geom = "text")
 ```
 
@@ -222,7 +221,7 @@ Plot the energy distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = energy)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = energy)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -253,7 +252,7 @@ Plot the energy distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = entropy)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = entropy)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -285,7 +284,7 @@ Plot the contrast distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = contrast)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = contrast)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -316,7 +315,7 @@ Plot the homogeneity distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = homogeneity)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = homogeneity)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 256, geom = "text")
 ```
 
@@ -347,7 +346,7 @@ Plot the cSE distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = c.se)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = c.se)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 6, geom = "text")
 ```
 
@@ -378,7 +377,7 @@ Plot the cluDev distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = clu.dev)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = clu.dev)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 25, geom = "text")
 ```
 
@@ -410,7 +409,7 @@ Plot the cluDiss distribution
 
 ```{r, echo = FALSE}
 clin.data %>%
-  ggplot(aes(x = institution.bin, y = clu.diss)) + geom_boxplot() +
+  ggplot(aes(x = institution.bin, y = clu.diss)) + geom_boxplot(notch = TRUE) +
     stat_summary(fun.data = n_fun, fun.args = 30902, geom = "text")
 ```
 
@@ -558,31 +557,215 @@ Homogeneity vs. sites
 
 *** 
 
+### Resection and association to outomces
+  
+#### Cox regression to determine if resection was associated with survival in the two datasets
+  
+**Adjusted**
+
+Check if resection was associated with PFS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease)+volume.cc+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if resection was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease)+volume.cc+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+** Unadjusted**
+  
+  Check if resection was associated with PFS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if resection was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+###Stage and association to outcomes
+
+
+
+#### Cox regression to determine if stage was associated with survival in the two datasets
+
+**Adjusted**
+  Check ifstage was associated with PFS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease)+volume.cc+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if stage was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease)+volume.cc+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+** Unadjusted**
+  
+  Check if stage was associated with PFS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Was stage associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+
+
 ##Volume and association to outcomes
 
 ##### Cox regression to determine if volume was associated with survival in the two datasets
 
-Check if volume was associated with PFS
+** Adjusted**
+  
+  Check if volume was associated with PFS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
-  clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc+age + as.factor(stage), data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc+age + as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
 
-Check if volume was associated with OS
+Check if volume was associated with OS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc+age + as.factor(stage), data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc+age + as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
+
+**Unadjusted cox for volume**
+  
+  PFS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+#### Was age associated to survival?
+
+**Adjusted**
+  
+  Check if volume was associated with PFS Adjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc+age +as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if volume was associated with OS Adjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc+age +as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+**Unadjusted cox for age**
+  
+  PFS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~age, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~age, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
   
 
 ##### Non-parametric two-sided analysis for volume vs. platinum status
@@ -602,25 +785,28 @@ clin.data %>%
 
 ##ISTH measures and association to outcomes
 
-####Cox hazard regression for continuous ISTH measures with PFS in the two datasets
-
-Check if cSE was associated with PFS 
+ ##ISTH measures and association to outcomes
+  
+  ####Cox hazard regression for continuous ISTH measures with PFS in the two datasets
+  
+  **Adjusted**
+  Check if cSE was associated with PFS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~c.se+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~c.se+age+as.factor(stage)+volume.cc + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
-Check if cSE was associated with OS
+Check if cSE was associated with OS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~c.se+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~c.se+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
@@ -628,20 +814,20 @@ Check if cSE was associated with OS
 Check if cluDev was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.dev+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.dev+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if cluDev was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.dev+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.dev+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
@@ -649,23 +835,91 @@ Check if cluDev was associated with OS
 Check if cluDiss was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.diss+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.diss+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if cluDiss was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.diss+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.diss+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
+
+
+**Unadjusted**
+  
+  
+  Check if cSE was associated with PFS Unadjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~c.se, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cSE was associated with OS Unadjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~c.se, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if cluDev was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.dev, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cluDev was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.dev, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if cluDiss was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.diss, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if cluDiss was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clu.diss, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
 
 #### Non-parameteric tests to test association of ISTH measures with platinum status
 
@@ -754,30 +1008,60 @@ cluDiss
 
 ####Association between high, ultra-high vs. low, medium ISTH clusters and survival
 
-Was low,medium cluster heterogeneity associated with PFS?
+** Adjusted**
+  
+  Was low,medium cluster heterogeneity associated with PFS?
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data$clusterISTH <- (clin.data$ClusterID.ISTH == "Low" | clin.data$ClusterID.ISTH=="Medium")
-    slo <- clin.data$clusterISTH
-    shi <- !clin.data$clusterISTH
-    clin.data$clusterISTH[slo] <- paste("Low")
-    clin.data$clusterISTH[shi] <- paste("High")
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data$clusterISTH <- (clin.data$ClusterID.ISTH == "Low" | clin.data$ClusterID.ISTH=="Medium")
+slo <- clin.data$clusterISTH
+shi <- !clin.data$clusterISTH
+clin.data$clusterISTH[slo] <- paste("aLow")
+clin.data$clusterISTH[shi] <- paste("bHigh")
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Was low,medium cluster heterogeneity associated with OS?
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clusterISTH+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clusterISTH+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
+
+
+**Unadjusted**
+  
+  
+```{r, echo=FALSE, warning=FALSE}
+  clin.data$clusterISTH <- (clin.data$ClusterID.ISTH == "Low" | clin.data$ClusterID.ISTH=="Medium")
+slo <- clin.data$clusterISTH
+shi <- !clin.data$clusterISTH
+clin.data$clusterISTH[slo] <- paste("aLow")
+clin.data$clusterISTH[shi] <- paste("bHigh")
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Was low,medium cluster heterogeneity associated with OS?
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
 
 #### Distribution of clinical characteristics in the clustered groups for the two datasets
 
@@ -989,24 +1273,26 @@ Fisher exact test for clusters vs. resection: TCIA
 
 ##Haralick textures and association to outcomes
 ####Cox hazard regression for continuous Haralick texture measures with PFS in the two datasets
-
+  
+**Adjusted**
+  
 Check if Energy was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~energy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~energy+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if Energy was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~energy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~energy+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
@@ -1014,20 +1300,20 @@ Check if Energy was associated with OS
 Check if Entropy was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~entropy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~entropy+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if Entropy was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~entropy+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~entropy+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
@@ -1035,20 +1321,20 @@ Check if Entropy was associated with OS
 Check if Contrast was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~contrast+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~contrast+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if Contrast was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~contrast+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~contrast+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
@@ -1056,23 +1342,111 @@ Check if Contrast was associated with OS
 Check if Homogeneity was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~homogeneity+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~homogeneity+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Check if Homogeneity was associated with OS
 
 ```{r, echo=FALSE, warning=FALSE}
- clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~homogeneity+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~homogeneity+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
 ```
+
+**Unadjusted**
+  
+  
+  Check if Energy was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~energy, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Energy was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~energy, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Entropy was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~entropy, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Entropy was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~entropy, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Contrast was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~contrast, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Contrast was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~contrast, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if Homogeneity was associated with PFS 
+
+```{r, echo=FALSE, warning=FALSE}
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~homogeneity, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Check if Homogeneity was associated with OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~homogeneity, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
 
 #### Non-parameteric tests to test association of Haralick textures with platinum status
 
@@ -1194,30 +1568,62 @@ Homogeneity
 
 ####Association between Haralick clusters and survival
 
-Haralick clusters and association with PFS?
+**Adjusted**
+  
+  Haralick clusters and association with PFS?
 
 ```{r, echo=FALSE, warning=FALSE}
 
-    clin.data$Hcluster <- clin.data$ClusterID.Haralick
-    clin.data$Hcluster[clin.data$Hcluster=="Low"] <- paste("aLow")
-    clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("bMedium")
-    clin.data$Hcluster[clin.data$Hcluster=="High"] <- paste("cHigh")
-      
+clin.data$Hcluster <- clin.data$ClusterID.Haralick
+clin.data$Hcluster[clin.data$Hcluster=="Low"] <- paste("aLow")
+clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("bMedium")
+clin.data$Hcluster[clin.data$Hcluster=="High"] <- paste("cHigh")
 
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~Hcluster+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~Hcluster+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
 Haralick clusters and association with OS?
 
 ```{r, echo=FALSE, warning=FALSE}
-    clin.data %>%
-    group_by(institution.bin) %>%
-      do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~Hcluster+age+as.factor(stage)+volume.cc, data=.), exponentiate=TRUE)) %>%
-    select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~Hcluster+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+
+**Unadjusted**
+  
+  Haralick clusters and association with PFS?
+
+```{r, echo=FALSE, warning=FALSE}
+
+clin.data$Hcluster <- clin.data$ClusterID.Haralick
+clin.data$Hcluster[clin.data$Hcluster=="Low"] <- paste("aLow")
+clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("bMedium")
+clin.data$Hcluster[clin.data$Hcluster=="High"] <- paste("cHigh")
+
+
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~Hcluster, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+```
+
+Haralick clusters and association with OS?
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~Hcluster, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 ```
 
@@ -1454,7 +1860,6 @@ OS
 
   ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion surviving")
 ```
-
 
 
 
