@@ -2,7 +2,11 @@
 title: "Veeraraghavan etal 2017"
 author: "Harini Veeraraghavan and James D. Brenton"
 date: "June 16 2017"
-output: html_document
+output: 
+  html_document:
+    fig_height: 8
+    fig_width: 16
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -33,6 +37,44 @@ sum_    <- function(...) sum(..., na.rm=T)
 n_fun <- function(x, y){ # y is position for labels
   return(data.frame(y, label = paste0("n = ", length(x))))
 }
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
 ```
 
 Load in clinical data.
@@ -106,7 +148,7 @@ clin.data %>%
 ```{r, echo=FALSE}
 ggsurvplot(
   survfit(Surv(time=os.mos, event=dead=="1") ~ institution.bin, data=clin.data),
-  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE)
+  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE, size=2)
 ```
 
 
@@ -136,7 +178,7 @@ clin.data %>%
 ```{r, echo=FALSE}
 ggsurvplot(
   survfit(Surv(time=pfs.mos, event=recurrence=="1") ~ institution.bin, data=clin.data),
-  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE)
+  data = clin.data, risk.table = TRUE, conf.int = TRUE, pval = TRUE, size=2)
 ```
 
 
@@ -557,6 +599,10 @@ Homogeneity vs. sites
 
 *** 
 
+```{r, echo=FALSE, warning=FALSE}
+  clin.data$stage[clin.data$stage==2] <- 3
+```
+
 ### Resection and association to outomces
   
 #### Cox regression to determine if resection was associated with survival in the two datasets
@@ -716,16 +762,17 @@ clin.data %>%
 
 ```
 
-#### Was age associated to survival?
 
-**Adjusted**
+##### Cox regression to determine if sites was associated with survival in the two datasets
+
+** Adjusted**
   
-  Check if volume was associated with PFS Adjusted
+  Check if sites was associated with PFS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
 clin.data %>%
   group_by(institution.bin) %>%
-  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~volume.cc+age +as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~sites+volume.cc+age + as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
   select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
@@ -736,7 +783,59 @@ Check if volume was associated with OS Adjusted
 ```{r, echo=FALSE, warning=FALSE}
 clin.data %>%
   group_by(institution.bin) %>%
-  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~volume.cc+age +as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~sites+volume.cc+age + as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+**Unadjusted cox for sites**
+  
+  PFS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~sites, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+OS
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~sites, data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+
+
+#### Was age associated to survival?
+
+**Adjusted**
+  
+  Check if age was associated with PFS Adjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~age + volume.cc+as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+```
+
+Check if age was associated with OS Adjusted
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~age+volume.cc+as.factor(stage) + as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
   select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
   arrange(institution.bin, p.value)
 
@@ -778,7 +877,77 @@ clin.data %>%
   arrange(institution.bin, p.value)
 
 
+  clin.data[clin.data$institution.bin=="MSKCC",] %>%
+  ggplot(aes(x = platinum.resistant, y = volume.cc)) + geom_boxplot(notch = FALSE) +
+    stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
+  
+  clin.data[clin.data$institution.bin=="TCIA",] %>%
+  ggplot(aes(x = platinum.resistant, y = volume.cc)) + geom_boxplot(notch = FALSE) +
+    stat_summary(fun.data = n_fun, fun.args = 15, geom = "text")
+  
+
+
 ```
+
+Sites vs. Platinum
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(sites ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+cSE/Sites vs. Platinum
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(c.se/sites ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+  clin.data[clin.data$institution.bin=="MSKCC",] %>%
+  ggplot(aes(x = platinum.resistant, y = c.se/sites)) + geom_boxplot(notch = FALSE) +
+    stat_summary(fun.data = n_fun, fun.args = 1, geom = "text")
+  
+  clin.data[clin.data$institution.bin=="TCIA",] %>%
+  ggplot(aes(x = platinum.resistant, y = c.se/sites)) + geom_boxplot(notch = FALSE) +
+    stat_summary(fun.data = n_fun, fun.args = 1, geom = "text")
+  
+
+
+```
+
+
+cluDev/Sites vs. Platinum
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(clu.dev/sites ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+
+cluDiss/Sites vs. platinum
+
+```{r, echo=FALSE, warning=FALSE}
+clin.data %>% 
+  group_by(institution.bin) %>%
+    do(tidy(wilcox.test(clu.diss/sites ~ platinum.resistant, data =.))) %>%
+  select(institution.bin, statistic, p.value) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
 
 ***
 
@@ -790,6 +959,7 @@ clin.data %>%
   ####Cox hazard regression for continuous ISTH measures with PFS in the two datasets
   
   **Adjusted**
+  
   Check if cSE was associated with PFS Adjusted
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -1186,6 +1356,7 @@ Platinum resistance/sensitivity in low,medium vs. high/ultra-high ISTH clusters
   t <- clin.data%>%  
     group_by(institution.bin, clusterISTH, platinum.resistant) %>%
       do(data.frame(nrow=nrow(.)))
+  t <- na.omit(t)
   print(t)
   
   
@@ -1195,7 +1366,8 @@ Fisher exact test for MSKCC clusters ISTH vs. platinum resistance
 
 ```{r, echo=FALSE, warning=FALSE}
 
-  platinumByClusters <- matrix(c(21, 14, 2, 7), nrow=2, dimnames = list(c("Sensitive", "Resistant"), c("Low", "High")))
+  platinumByClusters <-  matrix(as.matrix.data.frame(t[1:4,4]), nrow=2, dimnames = list(c("Sensitive", "Resistant"), c("Low", "High")))
+#matrix(c(21, 14, 2, 7), nrow=2, dimnames = list(c("Sensitive", "Resistant"), c("Low", "High")))
 
   tidy(fisher.test(platinumByClusters, alternative = "two.sided")) %>%
     select(estimate, p.value, conf.low, conf.high)
@@ -1203,7 +1375,8 @@ Fisher exact test for MSKCC clusters ISTH vs. platinum resistance
 
 Fisher exact test for TCIA clusters ISTH vs. platinum resistance
 ```{r, echo=FALSE, warning=FALSE}
-   platinumByClusters <- matrix(c(7, 10, 3, 4), nrow=2, dimnames = list(c("Sensitive", "Resistant"), 
+   platinumByClusters <- matrix(as.matrix.data.frame(t[1:8,4]), 
+                            nrow=2,ncol=2, dimnames = list(c("Sensitive", "Resistant"), 
                                                                        c("Low", "High")))
   tidy(fisher.test(platinumByClusters, alternative="two.sided")) %>%
     select(estimate, p.value, conf.low, conf.high)
@@ -1606,7 +1779,7 @@ clin.data %>%
 
 clin.data$Hcluster <- clin.data$ClusterID.Haralick
 clin.data$Hcluster[clin.data$Hcluster=="Low"] <- paste("aLow")
-clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("bMedium")
+clin.data$Hcluster[clin.data$Hcluster=="Medium"] <- paste("aLow")
 clin.data$Hcluster[clin.data$Hcluster=="High"] <- paste("cHigh")
 
 
@@ -1840,26 +2013,37 @@ Entropy vs. scanner
 PFS
 
 ```{r, echo=FALSE, warning=FALSE}
+
+  clin.data$clusterISTH[clin.data$clusterISTH=="aLow"] <- "low"
+  clin.data$clusterISTH[clin.data$clusterISTH=="bHigh"] <- "high"
+  clin.data$ISTH <- clin.data$clusterISTH
   #clin.data %>%
   #  group_by(institution.bin) %>%
-     ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion not progressed")
+     p1 <- ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~ISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = FALSE, conf.int=FALSE, pval= TRUE, xlab="months", ylab="Proportion not progressed", size=2, font.main = c(15, "plain", "black"), font.x=c(14, "bold", "black"), font.y = c(14, "bold", "black"), font.tickslab = c(12, "plain", "black"), font.legend = c(14, "bold", "black"))
 
-     ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion not progressed")
+    p2 <- ggsurvplot(survfit(Surv(time=pfs.mos, event=recurrence=="1")~ISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = FALSE, conf.int=FALSE, pval= TRUE, xlab="months", ylab="Proportion not progressed", size=2, font.main = c(16, "plain", "black"), fontsize = 14, font.x=c(14, "bold", "black"), font.y = c(14, "bold", "black"), font.tickslab = c(12, "plain", "black"), font.legend = c(14, "bold", "black"))
 
- 
+  #multiplot(p1, p2, cols = 2)
 ```
 
 OS
 
 
 ```{r, echo=FALSE, warning=FALSE}
+
+  
 #  clin.data %>%
 #    group_by(institution.bin) %>%
-     ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion surviving")
+    p1 <-  ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin=="MSKCC",]), data=clin.data[clin.data$institution.bin=="MSKCC",], risk.table = TRUE, conf.int=FALSE, pval= TRUE, xlab="months", ylab="Proportion surviving")
  
 
-  ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=TRUE, pval= TRUE, xlab="months", ylab="Proportion surviving")
+  p2 <- ggsurvplot(survfit(Surv(time=os.mos, event=dead=="1")~clusterISTH, data=clin.data[clin.data$institution.bin!="MSKCC",]), data=clin.data[clin.data$institution.bin!="MSKCC",], risk.table = TRUE, conf.int=FALSE, pval= TRUE, xlab="months", ylab="Proportion surviving")
+  
+  multiplot(p1,p2, cols=1)
 ```
+
+
+
 
 
 
