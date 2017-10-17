@@ -81,7 +81,154 @@ Load in clinical data.
 
 ```{r, echo = FALSE, results="hide", warning=FALSE}
 clin.data <- read_csv("2017-Veeraraghavan-data-HV.csv")
+clin.data$clu.diss = clin.data$clu.diss/1000
 ```
+
+### check if the ESTIMATE scores are relevant for survival
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease)+ESTIMATE.score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease)+ESTIMATE.score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+
+
+### check if the immune scores are relevant for survival
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease)+Immune.Score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease)+Immune.Score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+
+### check if the stromal scores are relevant for survival
+```{r, echo=FALSE, warning=FALSE}
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~as.factor(residual.disease)+Stromal.Score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+  clin.data %>%
+  group_by(institution.bin) %>%
+  do(tidy(coxph(Surv(time=os.mos, event=dead=="1")~as.factor(residual.disease)+Stromal.Score+age+as.factor(stage), data=., na.action=na.omit), exponentiate=TRUE)) %>%
+  select(institution.bin, term, estimate, p.value, conf.low, conf.high) %>%
+  arrange(institution.bin, p.value)
+
+
+```
+
+
+#### Check if textures are correlated with ESTIMATE/ immune/ stromal scores
+
+```{r, echo=FALSE, warning=FALSE}
+  indx <- !is.na(clin.data$Stromal.Score)
+
+   clin.data %>%
+      do(tidy(cor.test(clin.data$c.se[indx], clin.data$Stromal.Score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+   clin.data %>%
+      do(tidy(cor.test(clin.data$c.se[indx], clin.data$Immune.Score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+   clin.data %>%
+      do(tidy(cor.test(clin.data$c.se[indx], clin.data$ESTIMATE.score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+   
+    clin.data %>%
+      do(tidy(cor.test(clin.data$clu.diss[indx], clin.data$Stromal.Score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+   clin.data %>%
+      do(tidy(cor.test(clin.data$clu.diss[indx], clin.data$Immune.Score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+   clin.data %>%
+      do(tidy(cor.test(clin.data$clu.diss[indx], clin.data$ESTIMATE.score[indx], method="spearman"))) %>%
+  select(estimate, p.value)
+   
+  clin.data$ClusterLowMed <- clin.data$ClusterID.ISTH == "Low" | clin.data$ClusterID.ISTH=="Medium" 
+  clin.data %>%
+     #group_by(institution.bin) %>%
+     do(tidy(wilcox.test(Stromal.Score ~ ClusterLowMed, data=.)))%>%
+    select(p.value)
+  
+  clin.data %>%
+     #group_by(institution.bin) %>%
+     do(tidy(wilcox.test(Immune.Score ~ ClusterLowMed, data=.)))%>%
+    select(p.value)
+  
+  clin.data %>%
+     #group_by(institution.bin) %>%
+     do(tidy(wilcox.test(ESTIMATE.score ~ ClusterLowMed, data=.)))%>%
+    select(p.value)
+   
+   legend_title <- "Clusters"
+   labels <- levels(as.factor(clin.data$ClusterID.ISTH))
+   
+     ggplot(data=clin.data, aes(x=factor(ClusterID.ISTH), y=Stromal.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+     ggplot(data=clin.data, aes(x=factor(ClusterID.ISTH), y=Immune.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+        ggplot(data=clin.data, aes(x=factor(ClusterID.ISTH), y=ESTIMATE.score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+   
+        
+  ## low-medium vs. high/ultra-high
+     
+      clin.data$ClusterLowMed[clin.data$ClusterLowMed==TRUE] <- "Low,Medium"
+      clin.data$ClusterLowMed[clin.data$ClusterLowMed==FALSE] <- "High,UltraHigh"
+   
+     ggplot(data=clin.data[indx,], aes(x=factor(ClusterLowMed), y=Stromal.Score, fill=ClusterLowMed)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = c("High","Low")) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+     ggplot(data=clin.data[indx,], aes(x=factor(ClusterLowMed), y=Immune.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+        ggplot(data=clin.data[indx,], aes(x=factor(ClusterLowMed), y=ESTIMATE.score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+        
+        
+        
+   dataMSK = clin.data[clin.data$institution.bin=="MSKCC",]
+       ggplot(data=dataMSK, aes(x=factor(ClusterID.ISTH), y=Stromal.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+       
+         ggplot(data=dataMSK, aes(x=factor(ClusterID.ISTH), y=Immune.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+        ggplot(data=dataMSK, aes(x=factor(ClusterID.ISTH), y=ESTIMATE.score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+   
+  dataTCIA = clin.data[clin.data$institution.bin=="TCIA",]      
+     ggplot(data=dataTCIA, aes(x=factor(ClusterID.ISTH), y=Stromal.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+     ggplot(data=dataTCIA, aes(x=factor(ClusterID.ISTH), y=Immune.Score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+     
+        ggplot(data=dataTCIA, aes(x=factor(ClusterID.ISTH), y=ESTIMATE.score, fill=ClusterID.ISTH)) + geom_boxplot() + theme_minimal() + scale_fill_discrete(legend_title, labels = labels) +  theme(axis.text=element_text(size=16), axis.title = element_text(size=16), axis.title.x = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), legend.title = element_text(size=18), legend.text = element_text(size=16))
+ 
+ 
+   ggplot(data=clin.data, aes=())
+```
+
 
 ## Simple data exploration
 
@@ -91,6 +238,8 @@ Total number of patients
 clin.data %>%
   distinct(tcga.id) %>% tally()
 ```
+
+
 
 
 ####Were there differences in the number of sites (ROI) between the cohorts?
@@ -1005,6 +1154,7 @@ clin.data %>%
 Check if cluDiss was associated with PFS 
 
 ```{r, echo=FALSE, warning=FALSE}
+
 clin.data %>%
   group_by(institution.bin) %>%
   do(tidy(coxph(Surv(time=pfs.mos, event=recurrence=="1")~clu.diss+age+as.factor(stage)+volume.cc+as.factor(residual.disease), data=.), exponentiate=TRUE)) %>%
